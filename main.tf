@@ -9,17 +9,19 @@ locals {
   }
 }
 
-# Using the local variables in resource blocks
+# Using the local variables in resource and provider blocks
 provider "aws" {
   region = local.region
 }
 
+#Resoource Block
 resource "aws_s3_bucket" "example" {
   bucket = local.bucket_name
 
   tags = local.common_tags
 }
 
+#Output Block
 output "bucket_name" {
   value = local.bucket_name
 }
