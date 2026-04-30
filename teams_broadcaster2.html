@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!-- Force browser to NEVER apply dark-mode overrides to this page -->
+<meta name="color-scheme" content="light only" />
+<title>Teams Message Broadcaster</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --accent: #1a73e8;
+    --accent2: #3fb950;
+    --danger: #f85149;
+    --warn: #d29922;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Lock the entire page to light mode — prevents Edge/Chrome dark-mode override */
+  :root { color-scheme: light only; }
+
+  /* Editor zone forced light — belt AND braces */
+  .editor-shell,
+  #editor,
+  .toolbar {
+    color-scheme: light only !important;
+    forced-color-adjust: none !important;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .wrapper { max-width: 820px; margin: auto; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  header .icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #1a73e8, #58a6ff);
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  header p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ════════════════════════════
+     TOOLBAR  — light theme
+  ════════════════════════════ */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: #eef2fb !important;
+    border: 1px solid #c5d3f0 !important;
+    border-radius: 8px;
+    align-items: center;
+  }
+
+  /* Base button */
+  .toolbar button {
+    background: #ffffff !important;
+    border: 1px solid #c9d3e0 !important;
+    color: #1a1a2e !important;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: 'DM Sans', sans-serif;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+
+  .toolbar button:hover {
+    background: #dce8ff;
+    border-color: #1a73e8;
+    box-shadow: 0 1px 4px rgba(26,115,232,0.18);
+  }
+
+  /* Active / ON states — each with its own colour */
+  #btnBold.on {
+    background: #fff3cd;
+    border-color: #d4a017;
+    color: #6b4c00;
+    font-weight: 800;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  }
+  #btnItalic.on {
+    background: #dbeafe;
+    border-color: #2563eb;
+    color: #1e3a8a;
+    font-style: italic;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  }
+  #btnUnderline.on {
+    background: #fce7f3;
+    border-color: #db2777;
+    color: #831843;
+    text-decoration: underline;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  }
+  #btnStrike.on {
+    background: #fdecea;
+    border-color: #f85149;
+    color: #991b1b;
+    text-decoration: line-through;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  }
+  #btnBullet.on,
+  #btnOrdered.on {
+    background: #dcfce7;
+    border-color: #16a34a;
+    color: #14532d;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .toolbar .sep {
+    width: 1px; height: 22px;
+    background: #c5d3f0;
+    flex-shrink: 0;
+    margin: 0 3px;
+  }
+
+  .toolbar input[type="color"] {
+    width: 34px; height: 30px;
+    padding: 2px 3px;
+    border: 1px solid #c9d3e0;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #fff;
+  }
+
+  .toolbar label { font-size: 12px; color: #556080; font-weight: 500; }
+
+  /* Special buttons */
+  #btnEveryone {
+    background: #e0eaff;
+    border-color: #93b4f8;
+    color: #1d4ed8;
+    font-weight: 700;
+  }
+  #btnEveryone:hover { background: #c7d9ff; border-color: #1a73e8; }
+
+  #btnClear { color: #b91c1c; }
+  #btnClear:hover { background: #fdecea; border-color: #f85149; }
+
+  /* ════════════════════════════
+     EDITOR  — white bg, black text
+  ════════════════════════════ */
+  .editor-shell {
+    background: #ffffff;
+    border-radius: 8px;
+  }
+
+  #editor {
+    width: 100%;
+    min-height: 220px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1.5px solid #c9d3e0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    line-height: 1.75;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    overflow-y: auto;
+    -webkit-text-fill-color: #111827 !important;
+    caret-color: #111827 !important;
+  }
+
+  #editor:focus {
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+  }
+
+  #editor:empty:before {
+    content: attr(data-placeholder);
+    color: #9ca3af;
+    pointer-events: none;
+  }
+
+  /* Tables inside editor */
+  #editor table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 13px;
+    color: #111827;
+  }
+  #editor table th,
+  #editor table td {
+    border: 1px solid #d1d5db;
+    padding: 7px 11px;
+    text-align: left;
+  }
+  #editor table th {
+    background: #f3f4f6;
+    font-weight: 600;
+  }
+  #editor table tr:nth-child(even) td { background: #f9fafb; }
+
+  /* @Everyone badge */
+  .at-everyone {
+    display: inline-block;
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-weight: 700;
+    font-size: 0.88em;
+    cursor: default;
+    user-select: none;
+    border: 1px solid #93c5fd;
+  }
+
+  /* ════════════════════════════
+     CHAT IDs
+  ════════════════════════════ */
+  #chatIds {
+    width: 100%;
+    min-height: 140px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.7;
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.2s;
+  }
+  #chatIds:focus { border-color: var(--accent); }
+
+  .hint {
+    margin-top: 7px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ════════════════════════════
+     SETTINGS
+  ════════════════════════════ */
+  .settings-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .setting-item { display: flex; flex-direction: column; gap: 4px; }
+  .setting-item label { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+  .setting-item input[type="number"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 14px;
+    width: 110px;
+    outline: none;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .setting-item input[type="number"]:focus { border-color: var(--accent); }
+
+  .token-row { display: flex; gap: 10px; align-items: center; }
+
+  #bearerToken {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    outline: none;
+  }
+  #bearerToken:focus { border-color: var(--accent); }
+
+  .toggle-eye {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 15px;
+  }
+
+  /* ════════════════════════════
+     ACTION BUTTONS
+  ════════════════════════════ */
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  .btn-send {
+    background: linear-gradient(135deg, #1a73e8, #58a6ff);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-send:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+  .btn-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-cancel {
+    background: transparent;
+    color: var(--danger);
+    border: 1.5px solid var(--danger);
+    border-radius: 8px;
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: 'DM Sans', sans-serif;
+    display: none;
+  }
+  .btn-cancel:hover { background: rgba(248,81,73,0.08); }
+  .btn-cancel.visible { display: block; }
+
+  /* ════════════════════════════
+     PROGRESS
+  ════════════════════════════ */
+  .progress-wrap { margin-top: 14px; display: none; }
+  .progress-wrap.visible { display: block; }
+
+  .progress-bar-bg {
+    background: var(--surface2);
+    border-radius: 99px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1a73e8, #58a6ff);
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ════════════════════════════
+     LOG
+  ════════════════════════════ */
+  #log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    min-height: 80px;
+    max-height: 320px;
+    overflow-y: auto;
+    font-size: 12.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.8;
+    color: var(--muted);
+  }
+  .log-ok   { color: #3fb950; }
+  .log-err  { color: #f85149; }
+  .log-wait { color: #d29922; }
+  .log-info { color: #58a6ff; }
+  .log-stop { color: #f85149; font-weight: 600; }
+  .log-done { color: #3fb950; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <header>
+    <div class="icon">📨</div>
+    <div>
+      <h1>Teams Broadcaster</h1>
+      <p>Microsoft Graph · Bulk Chat Messaging Automation</p>
+    </div>
+  </header>
+
+  <!-- MESSAGE COMPOSER -->
+  <div class="card">
+    <div class="card-title">✏️ &nbsp;Message Composer</div>
+
+    <div class="editor-shell">
+    <div class="toolbar">
+      <button id="btnBold"      onclick="toggleFmt('bold',          'btnBold')"      title="Bold"><b>B</b></button>
+      <button id="btnItalic"    onclick="toggleFmt('italic',        'btnItalic')"    title="Italic"><i>I</i></button>
+      <button id="btnUnderline" onclick="toggleFmt('underline',     'btnUnderline')" title="Underline"><u>U</u></button>
+      <button id="btnStrike"    onclick="toggleFmt('strikeThrough', 'btnStrike')"    title="Strikethrough"><s>S</s></button>
+      <div class="sep"></div>
+      <button id="btnEveryone" onclick="insertEveryoneTag()" title="Mention Everyone">@Everyone</button>
+      <div class="sep"></div>
+      <label>Color:</label>
+      <input type="color" id="fontColor" value="#1a73e8" onchange="applyColor(this.value)" title="Font color">
+      <div class="sep"></div>
+      <button id="btnBullet"  onclick="toggleFmt('insertUnorderedList', 'btnBullet')"  title="Bullet list">• List</button>
+      <button id="btnOrdered" onclick="toggleFmt('insertOrderedList',   'btnOrdered')" title="Numbered list">1. List</button>
+      <div class="sep"></div>
+      <button id="btnClear" onclick="clearEditor()">✕ Clear</button>
+    </div>
+
+    <div
+      id="editor"
+      contenteditable="true"
+      data-placeholder="Type your message here… Paste a table from Excel or Word and it will keep its full structure."
+    ></div>
+    </div>
+  </div>
+
+  <!-- CHAT IDs -->
+  <div class="card">
+    <div class="card-title">🔗 &nbsp;Chat IDs</div>
+    <textarea id="chatIds" spellcheck="false" placeholder="One Chat ID per line. Start a line with // to skip it.">19:7e7884e8f91b44688abd04248059d6df@thread.v2
+19:b198bc30932449dda51e0c98f12d7acc@thread.v2
+19:6fd6aca16b174d52a98b6c05a4889aa4@thread.v2
+19:76b486fe21534593a8ae2f807bdf3763@thread.v2
+19:fdfcfe8c047c4b8c8d0ab1edc0cf12b7@thread.v2
+19:30abb03b721e40848385aff0f3de9682@thread.v2
+19:72952e091843483e99923873d4d21d5b@thread.v2
+19:72f5815879984f8ba6a0ce31eaec5262@thread.v2
+19:0ae81eae913345e1b5cadba63dce9743@thread.v2
+19:2457f33d2a9840769f158563517cd6e6@thread.v2
+19:6878afbc426843c8a131d9704826574e@thread.v2
+19:f0d51e6c983d4c019e794f13360f620a@thread.v2
+19:6b460f3860df4514b6140c5149a09495@thread.v2
+// 19:f4a8c4f2ef2b45f68dfcbab99acd1279@thread.v2
+// 19:8cd2c2e9756c4ac898f38a0169feccb1@thread.v2
+// 19:a25df31b06354644979dee9f5f0c6f13@thread.v2</textarea>
+    <div class="hint">💡 Lines starting with <code>//</code> are skipped · Duplicates auto-removed</div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <div class="card-title">⚙️ &nbsp;Settings</div>
+    <div class="settings-row">
+      <div class="setting-item">
+        <label>Delay Between Messages (seconds)</label>
+        <input type="number" id="delay" value="20" min="1" max="300"/>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <label style="font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">Bearer Token</label>
+      <div class="token-row">
+        <input type="password" id="bearerToken" placeholder="Paste your Microsoft Graph Bearer Token here…" />
+        <button class="toggle-eye" onclick="toggleToken()">👁</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="card">
+    <div class="card-title">🚀 &nbsp;Actions</div>
+    <div class="btn-row">
+      <button class="btn-send" id="sendBtn" onclick="startBroadcast()">▶ Send to All Chats</button>
+      <button class="btn-cancel" id="cancelBtn" onclick="cancelBroadcast()">⛔ Cancel</button>
+    </div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">Preparing…</div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <div class="card-title">📋 &nbsp;Activity Log</div>
+    <div id="log"><span style="color:var(--muted)">Log will appear here once you start broadcasting…</span></div>
+  </div>
+
+</div>
+
+<script>
+  /* ───────────────────────────
+     STATE
+  ─────────────────────────── */
+  let cancelRequested = false;
+
+  /* ───────────────────────────
+     TOOLBAR TOGGLE with highlight
+  ─────────────────────────── */
+  function toggleFmt(cmd, btnId) {
+    const editor = document.getElementById('editor');
+    editor.focus();
+    document.execCommand(cmd, false, null);
+    // Toggle the .on class for visual highlight
+    document.getElementById(btnId).classList.toggle('on');
+  }
+
+  function applyColor(color) {
+    document.getElementById('editor').focus();
+    document.execCommand('foreColor', false, color);
+  }
+
+  function clearEditor() {
+    document.getElementById('editor').innerHTML = '';
+    document.getElementById('editor').focus();
+    ['btnBold','btnItalic','btnUnderline','btnStrike','btnBullet','btnOrdered']
+      .forEach(id => document.getElementById(id).classList.remove('on'));
+  }
+
+  /* ───────────────────────────
+     PASTE HANDLER
+     Preserves full table structure from Excel / Word
+  ─────────────────────────── */
+  document.getElementById('editor').addEventListener('paste', function(e) {
+    e.preventDefault();
+
+    const cd = e.clipboardData;
+
+    if (cd.types.includes('text/html')) {
+      const rawHtml = cd.getData('text/html');
+
+      // Parse and clean the pasted HTML
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = rawHtml;
+
+      // Pull out the <body> content if it exists (Word/Excel wraps in full HTML doc)
+      const bodyEl = wrapper.querySelector('body');
+      const source  = bodyEl || wrapper;
+
+      // Tags we allow to pass through
+      const ALLOWED = new Set([
+        'table','thead','tbody','tfoot','tr','th','td','caption','colgroup','col',
+        'p','div','span','br','hr',
+        'b','strong','i','em','u','s','strike','del',
+        'ul','ol','li',
+        'h1','h2','h3','h4','h5','h6',
+        'font','a','img',
+        'sub','sup','pre','code','blockquote'
+      ]);
+
+      // Safe attributes per tag
+      const SAFE_ATTRS = ['style','class','colspan','rowspan','border',
+        'cellpadding','cellspacing','width','height','align','valign',
+        'href','src','alt','title','color','size','face'];
+
+      function clean(node) {
+        Array.from(node.childNodes).forEach(child => {
+          if (child.nodeType === 1) {
+            const tag = child.tagName.toLowerCase();
+            if (!ALLOWED.has(tag)) {
+              // Unwrap: lift children up, remove the shell tag
+              const parent = child.parentNode;
+              while (child.firstChild) parent.insertBefore(child.firstChild, child);
+              parent.removeChild(child);
+            } else {
+              // Strip unsafe attributes
+              Array.from(child.attributes).forEach(attr => {
+                if (!SAFE_ATTRS.includes(attr.name.toLowerCase())) {
+                  child.removeAttribute(attr.name);
+                }
+              });
+              clean(child);
+            }
+          }
+        });
+      }
+
+      clean(source);
+
+      // Force inline styles on tables so Teams renders them correctly
+      source.querySelectorAll('table').forEach(t => {
+        t.style.borderCollapse = 'collapse';
+        t.style.width          = '100%';
+        t.style.fontFamily     = 'Calibri, Arial, sans-serif';
+        t.style.fontSize       = '13px';
+        t.style.color          = '#111827';
+      });
+
+      source.querySelectorAll('th, td').forEach(cell => {
+        cell.style.border  = '1px solid #d1d5db';
+        cell.style.padding = '6px 10px';
+        cell.style.textAlign = 'left';
+        if (!cell.style.color) cell.style.color = '#111827';
+      });
+
+      source.querySelectorAll('th').forEach(th => {
+        th.style.background  = '#f3f4f6';
+        th.style.fontWeight  = '600';
+      });
+
+      // Insert at cursor position
+      const sel = window.getSelection();
+      if (sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const frag = document.createDocumentFragment();
+        Array.from(source.childNodes).forEach(n => frag.appendChild(n.cloneNode(true)));
+        range.insertNode(frag);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+
+    } else {
+      // Plain text fallback
+      const text = cd.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    }
+  });
+
+  /* ───────────────────────────
+     @EVERYONE TAG
+  ─────────────────────────── */
+  function insertEveryoneTag() {
+    const editor = document.getElementById('editor');
+    editor.focus();
+
+    const badge = document.createElement('span');
+    badge.className      = 'at-everyone';
+    badge.contentEditable = 'false';
+    badge.dataset.atEveryone = 'true';
+    badge.textContent    = '@Everyone';
+
+    const sel = window.getSelection();
+    if (sel.rangeCount) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(badge);
+      range.setStartAfter(badge);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editor.appendChild(badge);
+    }
+  }
+
+  /* ───────────────────────────
+     BUILD TEAMS HTML
+     Converts editor content → Graph API-ready HTML
+  ─────────────────────────── */
+  function buildTeamsHtml() {
+    const clone = document.getElementById('editor').cloneNode(true);
+
+    // Swap cosmetic badges for real Teams <at> tags
+    clone.querySelectorAll('[data-at-everyone]').forEach(el => {
+      el.parentNode.replaceChild(
+        document.createTextNode('<at id="0">Everyone</at>'), el
+      );
+    });
+
+    // Reinforce table inline styles for Teams
+    clone.querySelectorAll('table').forEach(t => {
+      t.setAttribute('style','border-collapse:collapse;width:100%;font-family:Calibri,Arial,sans-serif;font-size:13px;color:#111827;');
+    });
+    clone.querySelectorAll('th,td').forEach(c => {
+      const s = c.getAttribute('style') || '';
+      if (!s.includes('border')) {
+        c.setAttribute('style', s + ';border:1px solid #d1d5db;padding:6px 10px;text-align:left;color:#111827;');
+      }
+    });
+    clone.querySelectorAll('th').forEach(th => {
+      th.setAttribute('style', (th.getAttribute('style')||'') + ';background:#f3f4f6;font-weight:600;');
+    });
+
+    return clone.innerHTML.trim() || '<p>(empty message)</p>';
+  }
+
+  /* ───────────────────────────
+     PARSE CHAT IDs
+     Skip // lines, dedup
+  ─────────────────────────── */
+  function parseChatIds() {
+    const seen = new Set(), ids = [];
+    for (const line of document.getElementById('chatIds').value.split('\n')) {
+      const t = line.trim();
+      if (!t || t.startsWith('//')) continue;
+      if (!seen.has(t)) { seen.add(t); ids.push(t); }
+    }
+    return ids;
+  }
+
+  /* ───────────────────────────
+     TOKEN TOGGLE
+  ─────────────────────────── */
+  function toggleToken() {
+    const t = document.getElementById('bearerToken');
+    t.type = t.type === 'password' ? 'text' : 'password';
+  }
+
+  /* ───────────────────────────
+     CANCEL
+  ─────────────────────────── */
+  function cancelBroadcast() {
+    cancelRequested = true;
+    log('⛔ Cancel requested — stopping after current message…', 'log-stop');
+    document.getElementById('cancelBtn').disabled = true;
+    document.getElementById('cancelBtn').textContent = '⏳ Cancelling…';
+  }
+
+  /* ───────────────────────────
+     LOG
+  ─────────────────────────── */
+  function log(msg, cls = '') {
+    const box  = document.getElementById('log');
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+  function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+  /* ───────────────────────────
+     PROGRESS
+  ─────────────────────────── */
+  function setProgress(done, total) {
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent =
+      `${done} / ${total} chats sent  (${pct}%)`;
+  }
+
+  /* ───────────────────────────
+     SLEEP (cancellable)
+  ─────────────────────────── */
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function cancellableSleep(ms) {
+    const chunks = Math.ceil(ms / 500);
+    for (let c = 0; c < chunks; c++) {
+      if (cancelRequested) return;
+      await sleep(500);
+    }
+  }
+
+  /* ───────────────────────────
+     MAIN BROADCAST
+  ─────────────────────────── */
+  async function startBroadcast() {
+    const token = document.getElementById('bearerToken').value.trim();
+    if (!token) { alert('Please enter your Bearer Token first.'); return; }
+
+    const chatIds = parseChatIds();
+    if (!chatIds.length) {
+      alert('No active Chat IDs found. Ensure at least one line is not commented out.');
+      return;
+    }
+
+    const delayMs     = (parseInt(document.getElementById('delay').value) || 20) * 1000;
+    const htmlContent = buildTeamsHtml();
+
+    const hasMention      = htmlContent.includes('<at id="0">Everyone</at>');
+    const mentionsPayload = hasMention ? [{
+      id: 0,
+      mentionText: 'Everyone',
+      mentioned: { conversation: { conversationType: 'channel', id: 'everyone' } }
+    }] : [];
+
+    // UI setup
+    cancelRequested = false;
+    clearLog();
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('cancelBtn').classList.add('visible');
+    document.getElementById('cancelBtn').disabled = false;
+    document.getElementById('cancelBtn').textContent = '⛔ Cancel';
+    document.getElementById('progressWrap').classList.add('visible');
+    setProgress(0, chatIds.length);
+
+    log(`📋 Unique chats : ${chatIds.length}`, 'log-info');
+    log(`⏱  Delay        : ${delayMs / 1000}s`, 'log-info');
+    log(`──────────────────────────────────────────`);
+
+    let sent = 0;
+
+    for (let i = 0; i < chatIds.length; i++) {
+      if (cancelRequested) {
+        log(`\n⛔ Cancelled after ${sent} message(s).`, 'log-stop');
+        break;
+      }
+
+      const chatId = chatIds[i];
+      log(`➤ [${i + 1}/${chatIds.length}] Sending to ${chatId}…`);
+
+      try {
+        const payload = { body: { contentType: 'html', content: htmlContent } };
+        if (mentionsPayload.length) payload.mentions = mentionsPayload;
+
+        const res = await fetch(
+          `https://graph.microsoft.com/v1.0/chats/${chatId}/messages`,
+          {
+            method : 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type' : 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }
+        );
+
+        if (res.ok) {
+          sent++;
+          log(`   ✅ Sent successfully`, 'log-ok');
+        } else {
+          const err = await res.json().catch(() => res.text());
+          log(`   ❌ Failed: ${err?.error?.message || JSON.stringify(err)}`, 'log-err');
+        }
+      } catch (e) {
+        log(`   ❌ Network error: ${e.message}`, 'log-err');
+      }
+
+      setProgress(sent, chatIds.length);
+
+      if (cancelRequested) {
+        log(`\n⛔ Cancelled after ${sent} message(s).`, 'log-stop');
+        break;
+      }
+
+      if (i < chatIds.length - 1) {
+        log(`   ⏳ Waiting ${delayMs / 1000}s…`, 'log-wait');
+        await cancellableSleep(delayMs);
+      }
+    }
+
+    if (!cancelRequested) {
+      log(`\n🎉 Done! ${sent}/${chatIds.length} messages sent.`, 'log-done');
+    }
+
+    // Reset UI
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('cancelBtn').classList.remove('visible');
+    document.getElementById('cancelBtn').disabled = false;
+    document.getElementById('cancelBtn').textContent = '⛔ Cancel';
+    cancelRequested = false;
+  }
+</script>
+
+</body>
+</html>
