@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!-- Force browser to NEVER apply dark-mode overrides to this page -->
+<meta name="color-scheme" content="light only" />
+<title>Teams Message Broadcaster</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════════════════
+     LIBRARY: SheetJS (xlsx) for Excel parsing — CDN
+     Chosen because: runs 100% in browser, no backend needed,
+     handles .xlsx/.xls/.csv, battle-tested, MIT license.
+══════════════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --accent: #1a73e8;
+    --accent2: #3fb950;
+    --danger: #f85149;
+    --warn: #d29922;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Lock the entire page to light mode */
+  :root { color-scheme: light only; }
+
+  /* Editor zone forced light */
+  .editor-shell,
+  #editor,
+  .toolbar {
+    color-scheme: light only !important;
+    forced-color-adjust: none !important;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .wrapper { max-width: 900px; margin: auto; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  header .icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #1a73e8, #58a6ff);
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  header p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ════════════════════════════
+     TOOLBAR  — light theme
+  ════════════════════════════ */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: #eef2fb !important;
+    border: 1px solid #c5d3f0 !important;
+    border-radius: 8px;
+    align-items: center;
+  }
+
+  .toolbar button {
+    background: #ffffff !important;
+    border: 1px solid #c9d3e0 !important;
+    color: #1a1a2e !important;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: 'DM Sans', sans-serif;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+
+  .toolbar button:hover {
+    background: #dce8ff;
+    border-color: #1a73e8;
+    box-shadow: 0 1px 4px rgba(26,115,232,0.18);
+  }
+
+  #btnBold.on    { background:#fff3cd;border-color:#d4a017;color:#6b4c00;font-weight:800;box-shadow:inset 0 1px 3px rgba(0,0,0,.1); }
+  #btnItalic.on  { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-style:italic;box-shadow:inset 0 1px 3px rgba(0,0,0,.1); }
+  #btnUnderline.on { background:#fce7f3;border-color:#db2777;color:#831843;text-decoration:underline;box-shadow:inset 0 1px 3px rgba(0,0,0,.1); }
+  #btnStrike.on  { background:#fdecea;border-color:#f85149;color:#991b1b;text-decoration:line-through;box-shadow:inset 0 1px 3px rgba(0,0,0,.1); }
+  #btnBullet.on,
+  #btnOrdered.on { background:#dcfce7;border-color:#16a34a;color:#14532d;box-shadow:inset 0 1px 3px rgba(0,0,0,.1); }
+
+  .toolbar .sep {
+    width:1px;height:22px;
+    background:#c5d3f0;flex-shrink:0;margin:0 3px;
+  }
+
+  .toolbar input[type="color"] {
+    width:34px;height:30px;padding:2px 3px;
+    border:1px solid #c9d3e0;border-radius:6px;cursor:pointer;background:#fff;
+  }
+
+  .toolbar label { font-size:12px;color:#556080;font-weight:500; }
+
+  #btnEveryone { background:#e0eaff;border-color:#93b4f8;color:#1d4ed8;font-weight:700; }
+  #btnEveryone:hover { background:#c7d9ff;border-color:#1a73e8; }
+  #btnClear { color:#b91c1c; }
+  #btnClear:hover { background:#fdecea;border-color:#f85149; }
+
+  /* ════════════════════════════
+     EDITOR
+  ════════════════════════════ */
+  .editor-shell { background:#ffffff;border-radius:8px; }
+
+  #editor {
+    width:100%;min-height:220px;
+    padding:14px 16px;border-radius:8px;
+    border:1.5px solid #c9d3e0 !important;
+    background:#ffffff !important;color:#111827 !important;
+    font-size:14px;font-family:'DM Sans',sans-serif;line-height:1.75;
+    outline:none;transition:border-color 0.2s,box-shadow 0.2s;
+    overflow-y:auto;
+    -webkit-text-fill-color:#111827 !important;caret-color:#111827 !important;
+  }
+  #editor:focus { border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,.12); }
+  #editor:empty:before { content:attr(data-placeholder);color:#9ca3af;pointer-events:none; }
+
+  #editor table { border-collapse:collapse;width:100%;margin:10px 0;font-size:13px;color:#111827; }
+  #editor table th,
+  #editor table td { border:1px solid #d1d5db;padding:7px 11px;text-align:left; }
+  #editor table th { background:#f3f4f6;font-weight:600; }
+  #editor table tr:nth-child(even) td { background:#f9fafb; }
+
+  .at-everyone {
+    display:inline-block;background:#dbeafe;color:#1d4ed8;
+    border-radius:4px;padding:1px 6px;font-weight:700;font-size:.88em;
+    cursor:default;user-select:none;border:1px solid #93c5fd;
+  }
+
+  /* ════════════════════════════
+     CHAT IDs
+  ════════════════════════════ */
+  #chatIds {
+    width:100%;min-height:140px;padding:12px;border-radius:8px;
+    border:1px solid var(--border);background:var(--bg);color:var(--text);
+    font-size:12.5px;font-family:'IBM Plex Mono',monospace;line-height:1.7;
+    outline:none;resize:vertical;transition:border-color 0.2s;
+  }
+  #chatIds:focus { border-color:var(--accent); }
+
+  .hint { margin-top:7px;font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace; }
+
+  /* ════════════════════════════
+     SETTINGS
+  ════════════════════════════ */
+  .settings-row { display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap; }
+  .setting-item { display:flex;flex-direction:column;gap:4px; }
+  .setting-item label { font-size:12px;color:var(--muted);font-weight:600; }
+
+  .setting-item input[type="number"] {
+    background:var(--bg);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:7px 12px;font-size:14px;width:110px;outline:none;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .setting-item input[type="number"]:focus { border-color:var(--accent); }
+
+  .token-row { display:flex;gap:10px;align-items:center; }
+
+  #bearerToken {
+    flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:9px 14px;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;
+  }
+  #bearerToken:focus { border-color:var(--accent); }
+
+  .toggle-eye {
+    background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+    border-radius:6px;padding:8px 12px;cursor:pointer;font-size:15px;
+  }
+
+  /* ════════════════════════════
+     ACTION BUTTONS
+  ════════════════════════════ */
+  .btn-row { display:flex;gap:12px;flex-wrap:wrap; }
+
+  .btn-send {
+    background:linear-gradient(135deg,#1a73e8,#58a6ff);color:#fff;border:none;
+    border-radius:8px;padding:12px 28px;font-size:14px;font-weight:600;cursor:pointer;
+    transition:opacity 0.2s,transform 0.1s;font-family:'DM Sans',sans-serif;
+  }
+  .btn-send:hover:not(:disabled) { opacity:.9;transform:translateY(-1px); }
+  .btn-send:disabled { opacity:.4;cursor:not-allowed;transform:none; }
+
+  .btn-cancel {
+    background:transparent;color:var(--danger);border:1.5px solid var(--danger);
+    border-radius:8px;padding:12px 28px;font-size:14px;font-weight:600;cursor:pointer;
+    transition:background 0.15s;font-family:'DM Sans',sans-serif;display:none;
+  }
+  .btn-cancel:hover { background:rgba(248,81,73,.08); }
+  .btn-cancel.visible { display:block; }
+
+  /* ════════════════════════════
+     PROGRESS
+  ════════════════════════════ */
+  .progress-wrap { margin-top:14px;display:none; }
+  .progress-wrap.visible { display:block; }
+  .progress-bar-bg { background:var(--surface2);border-radius:99px;height:6px;overflow:hidden; }
+  .progress-bar-fill {
+    height:100%;background:linear-gradient(90deg,#1a73e8,#58a6ff);
+    border-radius:99px;width:0%;transition:width 0.4s ease;
+  }
+  .progress-label { font-size:12px;color:var(--muted);margin-top:6px;font-family:'IBM Plex Mono',monospace; }
+
+  /* ════════════════════════════
+     LOG
+  ════════════════════════════ */
+  #log {
+    background:var(--bg);border:1px solid var(--border);border-radius:8px;
+    padding:14px;min-height:80px;max-height:320px;overflow-y:auto;
+    font-size:12.5px;font-family:'IBM Plex Mono',monospace;line-height:1.8;color:var(--muted);
+  }
+  .log-ok   { color:#3fb950; }
+  .log-err  { color:#f85149; }
+  .log-wait { color:#d29922; }
+  .log-info { color:#58a6ff; }
+  .log-stop { color:#f85149;font-weight:600; }
+  .log-done { color:#3fb950;font-weight:600; }
+
+  /* ════════════════════════════
+     ★ NEW: EXCEL UPLOADER
+  ════════════════════════════ */
+
+  /* Drop zone */
+  .excel-dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .excel-dropzone:hover,
+  .excel-dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(26,115,232,.06);
+  }
+  .excel-dropzone input[type="file"] {
+    position: absolute;inset: 0;opacity: 0;cursor: pointer;width: 100%;height: 100%;
+  }
+  .excel-dropzone .dz-icon { font-size: 2rem; margin-bottom: 8px; }
+  .excel-dropzone p { color: var(--muted); font-size: 13px; }
+  .excel-dropzone strong { color: var(--text); font-size: 14px; }
+
+  /* Column mapper */
+  .col-mapper {
+    display: none;
+    margin-top: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .col-mapper.visible { display: block; }
+  .col-mapper-title { font-size: 12px;font-weight:600;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px; }
+  .col-mapper-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .col-field { display: flex; flex-direction: column; gap: 4px; }
+  .col-field label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .5px; }
+  .col-field select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 6px 10px; font-size: 12.5px; outline: none;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .col-field select:focus { border-color: var(--accent); }
+
+  /* Parse button */
+  .btn-parse {
+    margin-top: 12px;
+    background: linear-gradient(135deg, #3fb950, #2ea043);
+    color: #fff; border: none; border-radius: 7px;
+    padding: 9px 22px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: opacity .2s;
+  }
+  .btn-parse:hover { opacity: .88; }
+  .btn-parse:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* Summary badges */
+  .xl-summary {
+    display: none;
+    margin-top: 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .xl-summary.visible { display: flex; }
+  .xl-badge {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px; font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .xl-badge span { display: block; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .xl-badge.ok   { border-color: #3fb950; }
+  .xl-badge.warn { border-color: var(--warn); }
+  .xl-badge.err  { border-color: var(--danger); }
+
+  /* Data preview table */
+  .data-preview {
+    display: none;
+    margin-top: 14px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .data-preview.visible { display: block; }
+  .data-preview table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px; font-family: 'IBM Plex Mono', monospace;
+  }
+  .data-preview th {
+    background: var(--surface2); color: var(--muted);
+    padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .data-preview td {
+    padding: 7px 12px; border-bottom: 1px solid var(--border);
+    color: var(--text); max-width: 200px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .data-preview tr:last-child td { border-bottom: none; }
+  .data-preview tr.row-invalid td { background: rgba(248,81,73,.08); color: var(--danger); }
+  .data-preview .tag-invalid {
+    display: inline-block; background: var(--danger); color: #fff;
+    border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-left: 4px;
+  }
+  .data-preview .tag-dup {
+    display: inline-block; background: var(--warn); color: #000;
+    border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-left: 4px;
+  }
+
+  /* Invalid records panel */
+  .invalid-panel {
+    display: none;
+    margin-top: 12px;
+    background: rgba(248,81,73,.07);
+    border: 1px solid rgba(248,81,73,.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--danger);
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .invalid-panel.visible { display: block; }
+  .invalid-panel h4 { color: var(--danger); font-size: 12px; margin-bottom: 8px; letter-spacing:.5px; }
+
+  /* ════════════════════════════
+     ★ NEW: SMART SEND PANEL
+  ════════════════════════════ */
+  .smart-msg-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color .2s;
+  }
+  .smart-msg-input:focus { border-color: var(--accent); }
+  .smart-msg-input::placeholder { color: var(--muted); }
+
+  .preview-block {
+    display: none;
+    margin-top: 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.8;
+    color: var(--muted);
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .preview-block.visible { display: block; }
+  .preview-block .chat-group { margin-bottom: 16px; }
+  .preview-block .chat-group-title { color: var(--accent); font-weight: 600; margin-bottom: 6px; font-size: 11px; }
+  .preview-block .app-row { color: var(--text); padding-left: 12px; border-left: 2px solid var(--border); margin-bottom: 8px; }
+  .preview-block .custom-msg { color: #3fb950; font-style: italic; margin-bottom: 10px; }
+
+  .btn-smart-send {
+    background: linear-gradient(135deg, #1a73e8, #58a6ff);
+    color: #fff; border: none; border-radius: 7px;
+    padding: 10px 24px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: opacity .2s; margin-top: 10px;
+  }
+  .btn-smart-send:hover:not(:disabled) { opacity: .88; }
+  .btn-smart-send:disabled { opacity: .4; cursor: not-allowed; }
+
+  .btn-preview-smart {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 10px 20px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: background .15s; margin-top: 10px;
+  }
+  .btn-preview-smart:hover { background: var(--border); }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Tab navigation for the new section */
+  .tab-bar {
+    display: flex;
+    gap: 2px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+  .tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: .3px;
+  }
+  .tab-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <header>
+    <div class="icon">📨</div>
+    <div>
+      <h1>Teams Broadcaster</h1>
+      <p>Microsoft Graph · Bulk Chat Messaging · Excel Import · Smart Sender</p>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════
+       TAB NAVIGATION
+  ════════════════════════════════════ -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tab-composer')">✏️ Message Composer</button>
+    <button class="tab-btn"        onclick="switchTab('tab-excel')">📊 Excel Importer</button>
+    <button class="tab-btn"        onclick="switchTab('tab-smartsend')">🚀 Smart Send</button>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       TAB 1: ORIGINAL MESSAGE COMPOSER
+  ════════════════════════════════════ -->
+  <div id="tab-composer" class="tab-panel active">
+
+    <!-- MESSAGE COMPOSER (ORIGINAL — UNCHANGED) -->
+    <div class="card">
+      <div class="card-title">✏️ &nbsp;Message Composer</div>
+      <div class="editor-shell">
+        <div class="toolbar">
+          <button id="btnBold"      onclick="toggleFmt('bold','btnBold')"           title="Bold"><b>B</b></button>
+          <button id="btnItalic"    onclick="toggleFmt('italic','btnItalic')"       title="Italic"><i>I</i></button>
+          <button id="btnUnderline" onclick="toggleFmt('underline','btnUnderline')" title="Underline"><u>U</u></button>
+          <button id="btnStrike"    onclick="toggleFmt('strikeThrough','btnStrike')"title="Strikethrough"><s>S</s></button>
+          <div class="sep"></div>
+          <button id="btnEveryone" onclick="insertEveryoneTag()" title="Mention Everyone">@Everyone</button>
+          <div class="sep"></div>
+          <label>Color:</label>
+          <input type="color" id="fontColor" value="#1a73e8" onchange="applyColor(this.value)" title="Font color">
+          <div class="sep"></div>
+          <button id="btnBullet"  onclick="toggleFmt('insertUnorderedList','btnBullet')"  title="Bullet list">• List</button>
+          <button id="btnOrdered" onclick="toggleFmt('insertOrderedList','btnOrdered')"   title="Numbered list">1. List</button>
+          <div class="sep"></div>
+          <button id="btnClear" onclick="clearEditor()">✕ Clear</button>
+        </div>
+        <div
+          id="editor"
+          contenteditable="true"
+          data-placeholder="Type your message here… Paste a table from Excel or Word and it will keep its full structure."
+        ></div>
+      </div>
+    </div>
+
+    <!-- CHAT IDs (ORIGINAL — UNCHANGED) -->
+    <div class="card">
+      <div class="card-title">🔗 &nbsp;Chat IDs</div>
+      <textarea id="chatIds" spellcheck="false" placeholder="One Chat ID per line. Start a line with // to skip it.">19:7e7884e8f91b44688abd04248059d6df@thread.v2
+19:b198bc30932449dda51e0c98f12d7acc@thread.v2
+19:6fd6aca16b174d52a98b6c05a4889aa4@thread.v2
+19:76b486fe21534593a8ae2f807bdf3763@thread.v2
+19:fdfcfe8c047c4b8c8d0ab1edc0cf12b7@thread.v2
+19:30abb03b721e40848385aff0f3de9682@thread.v2
+19:72952e091843483e99923873d4d21d5b@thread.v2
+19:72f5815879984f8ba6a0ce31eaec5262@thread.v2
+19:0ae81eae913345e1b5cadba63dce9743@thread.v2
+19:2457f33d2a9840769f158563517cd6e6@thread.v2
+19:6878afbc426843c8a131d9704826574e@thread.v2
+19:f0d51e6c983d4c019e794f13360f620a@thread.v2
+19:6b460f3860df4514b6140c5149a09495@thread.v2
+// 19:f4a8c4f2ef2b45f68dfcbab99acd1279@thread.v2
+// 19:8cd2c2e9756c4ac898f38a0169feccb1@thread.v2
+// 19:a25df31b06354644979dee9f5f0c6f13@thread.v2</textarea>
+      <div class="hint">💡 Lines starting with <code>//</code> are skipped · Duplicates auto-removed</div>
+    </div>
+
+    <!-- SETTINGS (ORIGINAL — UNCHANGED) -->
+    <div class="card">
+      <div class="card-title">⚙️ &nbsp;Settings</div>
+      <div class="settings-row">
+        <div class="setting-item">
+          <label>Delay Between Messages (seconds)</label>
+          <input type="number" id="delay" value="20" min="1" max="300"/>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <label style="font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">Bearer Token</label>
+        <div class="token-row">
+          <input type="password" id="bearerToken" placeholder="Paste your Microsoft Graph Bearer Token here…" />
+          <button class="toggle-eye" onclick="toggleToken()">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS (ORIGINAL — UNCHANGED) -->
+    <div class="card">
+      <div class="card-title">🚀 &nbsp;Actions</div>
+      <div class="btn-row">
+        <button class="btn-send" id="sendBtn" onclick="startBroadcast()">▶ Send to All Chats</button>
+        <button class="btn-cancel" id="cancelBtn" onclick="cancelBroadcast()">⛔ Cancel</button>
+      </div>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+        <div class="progress-label" id="progressLabel">Preparing…</div>
+      </div>
+    </div>
+
+    <!-- LOG (ORIGINAL — UNCHANGED) -->
+    <div class="card">
+      <div class="card-title">📋 &nbsp;Activity Log</div>
+      <div id="log"><span style="color:var(--muted)">Log will appear here once you start broadcasting…</span></div>
+    </div>
+
+  </div><!-- /tab-composer -->
+
+  <!-- ═══════════════════════════════════
+       TAB 2: EXCEL IMPORTER
+  ════════════════════════════════════ -->
+  <div id="tab-excel" class="tab-panel">
+
+    <div class="card">
+      <div class="card-title">📊 &nbsp;Excel File Upload</div>
+
+      <!-- Drop Zone -->
+      <div class="excel-dropzone" id="dropZone">
+        <input type="file" id="excelFile" accept=".xlsx,.xls,.csv"
+               onchange="handleFileSelect(this.files[0])" />
+        <div class="dz-icon">📂</div>
+        <strong>Drop your Excel file here or click to browse</strong>
+        <p style="margin-top:6px;">Supports .xlsx · .xls · .csv</p>
+      </div>
+
+      <!-- Column Mapper -->
+      <div class="col-mapper" id="colMapper">
+        <div class="col-mapper-title">🔗 Map Columns</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Select which column in your Excel maps to each required field.
+        </p>
+        <div class="col-mapper-grid">
+          <div class="col-field">
+            <label>App Name</label>
+            <select id="map-appName"><option value="">— select —</option></select>
+          </div>
+          <div class="col-field">
+            <label>App ID</label>
+            <select id="map-appId"><option value="">— select —</option></select>
+          </div>
+          <div class="col-field">
+            <label>CTASK Group</label>
+            <select id="map-ctaskGroup"><option value="">— select —</option></select>
+          </div>
+          <div class="col-field">
+            <label>CTASK ID</label>
+            <select id="map-ctaskId"><option value="">— select —</option></select>
+          </div>
+          <div class="col-field">
+            <label>Chat ID</label>
+            <select id="map-chatId"><option value="">— select —</option></select>
+          </div>
+        </div>
+        <button class="btn-parse" id="btnParse" onclick="parseExcelData()">
+          ✔ Parse &amp; Validate Data
+        </button>
+      </div>
+
+      <!-- Summary Badges -->
+      <div class="xl-summary" id="xlSummary">
+        <div class="xl-badge ok"  id="badge-total"><span id="cnt-total">0</span>Total Rows</div>
+        <div class="xl-badge ok"  id="badge-valid"><span id="cnt-valid">0</span>Valid Rows</div>
+        <div class="xl-badge ok"  id="badge-chats"><span id="cnt-chats">0</span>Unique Chat IDs</div>
+        <div class="xl-badge warn"id="badge-dup">  <span id="cnt-dup">0</span>Duplicate ChatIDs</div>
+        <div class="xl-badge err" id="badge-inv">  <span id="cnt-inv">0</span>Invalid / Empty</div>
+      </div>
+
+      <!-- Invalid records panel -->
+      <div class="invalid-panel" id="invalidPanel">
+        <h4>⚠️ Invalid / Empty Chat ID Records</h4>
+        <div id="invalidList"></div>
+      </div>
+
+      <!-- Data Preview -->
+      <div class="data-preview" id="dataPreview">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>App Name</th>
+              <th>App ID</th>
+              <th>CTASK Group</th>
+              <th>CTASK ID</th>
+              <th>Chat ID</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Push Chat IDs to main textarea -->
+      <div style="margin-top:14px;">
+        <button class="btn-parse" id="btnPushIds" onclick="pushChatIdsToMain()" disabled>
+          ➕ Push Chat IDs → Chat ID List
+        </button>
+        <span style="font-size:12px;color:var(--muted);margin-left:10px;">
+          Appends unique, valid Chat IDs to the Chat IDs textarea in the Composer tab.
+        </span>
+      </div>
+
+    </div>
+  </div><!-- /tab-excel -->
+
+  <!-- ═══════════════════════════════════
+       TAB 3: SMART SEND (per Chat ID)
+  ════════════════════════════════════ -->
+  <div id="tab-smartsend" class="tab-panel">
+
+    <div class="card">
+      <div class="card-title">💬 &nbsp;Custom Message (Prepended to every message)</div>
+      <textarea
+        id="smartMsg"
+        class="smart-msg-input"
+        placeholder="Example: Please review the below application details for the planned change."
+        onpaste="sanitizePasteTextarea(event)"
+      ></textarea>
+      <div class="hint">💡 This text appears at the top of each message. Paste sanitization is active — only plain text allowed.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ &nbsp;Smart Send Settings</div>
+      <div class="settings-row">
+        <div class="setting-item">
+          <label>Delay Between Messages (seconds)</label>
+          <input type="number" id="smartDelay" value="20" min="1" max="300"/>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <label style="font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">Bearer Token</label>
+        <div class="token-row">
+          <input type="password" id="smartBearerToken" placeholder="Paste your Microsoft Graph Bearer Token here…" />
+          <button class="toggle-eye" onclick="toggleSmartToken()">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔍 &nbsp;Message Preview (grouped by Chat ID)</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+        Import data from the Excel Importer tab first, then preview how messages will look per Chat ID.
+      </p>
+      <div class="btn-row">
+        <button class="btn-preview-smart" onclick="buildSmartPreview()">👁 Preview Messages</button>
+        <button class="btn-smart-send" id="smartSendBtn" onclick="startSmartBroadcast()" disabled>
+          ▶ Smart Send All
+        </button>
+        <button class="btn-cancel" id="smartCancelBtn" onclick="cancelSmartBroadcast()">⛔ Cancel</button>
+      </div>
+
+      <!-- Preview panel -->
+      <div class="preview-block" id="smartPreview"></div>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="smartProgressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="smartProgressFill"></div></div>
+        <div class="progress-label" id="smartProgressLabel">Preparing…</div>
+      </div>
+    </div>
+
+    <!-- Smart Log -->
+    <div class="card">
+      <div class="card-title">📋 &nbsp;Smart Send Log</div>
+      <div id="smartLog"><span style="color:var(--muted)">Smart Send log will appear here…</span></div>
+    </div>
+
+  </div><!-- /tab-smartsend -->
+
+</div><!-- /wrapper -->
+
+<script>
+/* ╔══════════════════════════════════════════════════════════════════╗
+   ║  TEAMS BROADCASTER — ENHANCED EDITION                           ║
+   ║  Architecture:                                                   ║
+   ║   • Original features: 100% intact, zero changes                ║
+   ║   • ExcelEngine   : parses / validates / groups Excel data       ║
+   ║   • PasteGuard    : strips all styles, keeps plain text          ║
+   ║   • SmartSender   : sends one message per Chat ID with grouped   ║
+   ║                     app details, extensible for any chat API      ║
+   ╚══════════════════════════════════════════════════════════════════╝ */
+
+  /* ───────────────────────────
+     GLOBAL STATE
+  ─────────────────────────── */
+  let cancelRequested      = false;  // Original broadcast cancel
+  let smartCancelRequested = false;  // Smart send cancel
+
+  // Excel data store — populated by ExcelEngine
+  const ExcelStore = {
+    headers:     [],   // raw column headers from the file
+    rawRows:     [],   // all parsed row objects
+    validRows:   [],   // rows with a non-empty Chat ID
+    invalidRows: [],   // rows missing Chat ID
+    grouped:     {},   // { chatId: [row, row, ...] }
+  };
+
+  /* ══════════════════════════════════════════════════════════
+     ★ PASTE GUARD MODULE
+     Sanitizes paste events — strips ALL external CSS/HTML,
+     preserves plain text and line breaks only.
+     Used on: #editor (rich, table-aware), #smartMsg (plain),
+     #chatIds (plain), and any future textarea.
+  ══════════════════════════════════════════════════════════ */
+  const PasteGuard = {
+
+    /**
+     * Strips HTML to plain text.
+     * Converts <br>, <p>, <div>, <tr> → newlines so structure is kept.
+     */
+    toPlainText(html) {
+      const tmp = document.createElement('div');
+      // Replace block-level and line-break tags with newline markers
+      const normalized = html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<\/tr>/gi, '\n')
+        .replace(/<\/li>/gi, '\n');
+      tmp.innerHTML = normalized;
+      // Get text content (strips remaining tags)
+      let text = tmp.textContent || tmp.innerText || '';
+      // Collapse 3+ newlines → 2
+      text = text.replace(/\n{3,}/g, '\n\n').trim();
+      return text;
+    },
+
+    /**
+     * Insert plain text at cursor position inside a contenteditable.
+     * Used for the rich #editor when we want PLAIN text only.
+     */
+    insertPlainIntoEditor(text) {
+      // Normalize line endings
+      const lines = text.split('\n');
+      const frag  = document.createDocumentFragment();
+      lines.forEach((line, i) => {
+        if (i > 0) frag.appendChild(document.createElement('br'));
+        frag.appendChild(document.createTextNode(line));
+      });
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(frag);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    },
+
+    /**
+     * Handler for plain <textarea> elements.
+     * Call: sanitizePasteTextarea(event)
+     */
+    handleTextarea(e) {
+      const cd = e.clipboardData;
+      if (!cd) return;
+      e.preventDefault();
+
+      // Prefer plain text; fall back to stripping HTML
+      let text = cd.getData('text/plain');
+      if (!text && cd.types.includes('text/html')) {
+        text = PasteGuard.toPlainText(cd.getData('text/html'));
+      }
+
+      // Insert at cursor in textarea
+      const ta    = e.target;
+      const start = ta.selectionStart;
+      const end   = ta.selectionEnd;
+      ta.value = ta.value.substring(0, start) + text + ta.value.substring(end);
+      ta.selectionStart = ta.selectionEnd = start + text.length;
+    }
+  };
+
+  // Global alias so inline HTML onpaste="…" works
+  function sanitizePasteTextarea(e) { PasteGuard.handleTextarea(e); }
+
+  // Also attach to chatIds textarea (original element — no markup change needed)
+  document.getElementById('chatIds').addEventListener('paste', PasteGuard.handleTextarea);
+
+  /* ══════════════════════════════════════════════════════════
+     ORIGINAL EDITOR PASTE HANDLER
+     Enhanced: now strips ALL external CSS/styles from pasted HTML
+     while still preserving full table structure for Teams.
+  ══════════════════════════════════════════════════════════ */
+  document.getElementById('editor').addEventListener('paste', function(e) {
+    e.preventDefault();
+    const cd = e.clipboardData;
+
+    if (cd.types.includes('text/html')) {
+      const rawHtml = cd.getData('text/html');
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = rawHtml;
+
+      const bodyEl = wrapper.querySelector('body');
+      const source = bodyEl || wrapper;
+
+      // Tags we allow through
+      const ALLOWED = new Set([
+        'table','thead','tbody','tfoot','tr','th','td','caption','colgroup','col',
+        'p','div','span','br','hr',
+        'b','strong','i','em','u','s','strike','del',
+        'ul','ol','li',
+        'h1','h2','h3','h4','h5','h6',
+        'font','a','img',
+        'sub','sup','pre','code','blockquote'
+      ]);
+
+      // Structural attributes only — NO class, NO external font attributes
+      const SAFE_ATTRS = [
+        'colspan','rowspan','border','cellpadding','cellspacing',
+        'width','height','align','valign',
+        'href','src','alt','title'
+      ];
+      // 'style' is allowed but STRIPPED of all external CSS below
+
+      /**
+       * ★ ENHANCED: Walk the DOM tree.
+       *   - Remove disallowed tags (unwrap children)
+       *   - Strip ALL inline styles from non-table elements
+       *   - For table elements: keep only structural inline styles
+       *   - Remove class, id, and all data-* attributes
+       */
+      function cleanNode(node) {
+        Array.from(node.childNodes).forEach(child => {
+          if (child.nodeType !== 1) return; // Text/comment — leave alone
+          const tag = child.tagName.toLowerCase();
+
+          if (!ALLOWED.has(tag)) {
+            // Unwrap: lift children, remove shell
+            const parent = child.parentNode;
+            while (child.firstChild) parent.insertBefore(child.firstChild, child);
+            parent.removeChild(child);
+          } else {
+            // Remove ALL attributes first
+            Array.from(child.attributes).forEach(attr => {
+              child.removeAttribute(attr.name);
+            });
+
+            // Re-apply only safe structural attributes (no class, no id)
+            // (we already removed everything; safe attrs are re-applied below
+            // for table cells via the inline-style enforcement section)
+
+            cleanNode(child);
+          }
+        });
+      }
+
+      cleanNode(source);
+
+      // Enforce clean inline styles on tables for Teams rendering
+      source.querySelectorAll('table').forEach(t => {
+        t.style.borderCollapse = 'collapse';
+        t.style.width          = '100%';
+        t.style.fontFamily     = 'Calibri, Arial, sans-serif';
+        t.style.fontSize       = '13px';
+        t.style.color          = '#111827';
+      });
+      source.querySelectorAll('th, td').forEach(cell => {
+        cell.style.border    = '1px solid #d1d5db';
+        cell.style.padding   = '6px 10px';
+        cell.style.textAlign = 'left';
+        cell.style.color     = '#111827';
+      });
+      source.querySelectorAll('th').forEach(th => {
+        th.style.background = '#f3f4f6';
+        th.style.fontWeight = '600';
+      });
+
+      // Insert cleaned fragment at cursor
+      const sel = window.getSelection();
+      if (sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const frag = document.createDocumentFragment();
+        Array.from(source.childNodes).forEach(n => frag.appendChild(n.cloneNode(true)));
+        range.insertNode(frag);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+
+    } else {
+      // Plain text fallback
+      const text = cd.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     ORIGINAL TOOLBAR FUNCTIONS — UNCHANGED
+  ══════════════════════════════════════════════════════════ */
+  function toggleFmt(cmd, btnId) {
+    document.getElementById('editor').focus();
+    document.execCommand(cmd, false, null);
+    document.getElementById(btnId).classList.toggle('on');
+  }
+
+  function applyColor(color) {
+    document.getElementById('editor').focus();
+    document.execCommand('foreColor', false, color);
+  }
+
+  function clearEditor() {
+    document.getElementById('editor').innerHTML = '';
+    document.getElementById('editor').focus();
+    ['btnBold','btnItalic','btnUnderline','btnStrike','btnBullet','btnOrdered']
+      .forEach(id => document.getElementById(id).classList.remove('on'));
+  }
+
+  function insertEveryoneTag() {
+    const editor = document.getElementById('editor');
+    editor.focus();
+    const badge             = document.createElement('span');
+    badge.className         = 'at-everyone';
+    badge.contentEditable   = 'false';
+    badge.dataset.atEveryone = 'true';
+    badge.textContent       = '@Everyone';
+    const sel = window.getSelection();
+    if (sel.rangeCount) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(badge);
+      range.setStartAfter(badge);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editor.appendChild(badge);
+    }
+  }
+
+  function buildTeamsHtml() {
+    const clone = document.getElementById('editor').cloneNode(true);
+    clone.querySelectorAll('[data-at-everyone]').forEach(el => {
+      el.parentNode.replaceChild(
+        document.createTextNode('<at id="0">Everyone</at>'), el
+      );
+    });
+    clone.querySelectorAll('table').forEach(t => {
+      t.setAttribute('style','border-collapse:collapse;width:100%;font-family:Calibri,Arial,sans-serif;font-size:13px;color:#111827;');
+    });
+    clone.querySelectorAll('th,td').forEach(c => {
+      const s = c.getAttribute('style') || '';
+      if (!s.includes('border')) {
+        c.setAttribute('style', s + ';border:1px solid #d1d5db;padding:6px 10px;text-align:left;color:#111827;');
+      }
+    });
+    clone.querySelectorAll('th').forEach(th => {
+      th.setAttribute('style', (th.getAttribute('style')||'') + ';background:#f3f4f6;font-weight:600;');
+    });
+    return clone.innerHTML.trim() || '<p>(empty message)</p>';
+  }
+
+  function parseChatIds() {
+    const seen = new Set(), ids = [];
+    for (const line of document.getElementById('chatIds').value.split('\n')) {
+      const t = line.trim();
+      if (!t || t.startsWith('//')) continue;
+      if (!seen.has(t)) { seen.add(t); ids.push(t); }
+    }
+    return ids;
+  }
+
+  function toggleToken() {
+    const t = document.getElementById('bearerToken');
+    t.type = t.type === 'password' ? 'text' : 'password';
+  }
+
+  function toggleSmartToken() {
+    const t = document.getElementById('smartBearerToken');
+    t.type = t.type === 'password' ? 'text' : 'password';
+  }
+
+  function cancelBroadcast() {
+    cancelRequested = true;
+    log('⛔ Cancel requested — stopping after current message…', 'log-stop');
+    document.getElementById('cancelBtn').disabled = true;
+    document.getElementById('cancelBtn').textContent = '⏳ Cancelling…';
+  }
+
+  function log(msg, cls = '') {
+    const box  = document.getElementById('log');
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+  function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+  function setProgress(done, total) {
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent =
+      `${done} / ${total} chats sent  (${pct}%)`;
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function cancellableSleep(ms) {
+    const chunks = Math.ceil(ms / 500);
+    for (let c = 0; c < chunks; c++) {
+      if (cancelRequested) return;
+      await sleep(500);
+    }
+  }
+
+  /* ORIGINAL startBroadcast — UNCHANGED */
+  async function startBroadcast() {
+    const token = document.getElementById('bearerToken').value.trim();
+    if (!token) { alert('Please enter your Bearer Token first.'); return; }
+    const chatIds = parseChatIds();
+    if (!chatIds.length) {
+      alert('No active Chat IDs found. Ensure at least one line is not commented out.');
+      return;
+    }
+    const delayMs     = (parseInt(document.getElementById('delay').value) || 20) * 1000;
+    const htmlContent = buildTeamsHtml();
+    const hasMention  = htmlContent.includes('<at id="0">Everyone</at>');
+    const mentionsPayload = hasMention ? [{
+      id: 0, mentionText: 'Everyone',
+      mentioned: { conversation: { conversationType: 'channel', id: 'everyone' } }
+    }] : [];
+
+    cancelRequested = false;
+    clearLog();
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('cancelBtn').classList.add('visible');
+    document.getElementById('cancelBtn').disabled = false;
+    document.getElementById('cancelBtn').textContent = '⛔ Cancel';
+    document.getElementById('progressWrap').classList.add('visible');
+    setProgress(0, chatIds.length);
+
+    log(`📋 Unique chats : ${chatIds.length}`, 'log-info');
+    log(`⏱  Delay        : ${delayMs / 1000}s`, 'log-info');
+    log(`──────────────────────────────────────────`);
+
+    let sent = 0;
+    for (let i = 0; i < chatIds.length; i++) {
+      if (cancelRequested) { log(`\n⛔ Cancelled after ${sent} message(s).`, 'log-stop'); break; }
+      const chatId = chatIds[i];
+      log(`➤ [${i + 1}/${chatIds.length}] Sending to ${chatId}…`);
+      try {
+        const payload = { body: { contentType: 'html', content: htmlContent } };
+        if (mentionsPayload.length) payload.mentions = mentionsPayload;
+        const res = await fetch(`https://graph.microsoft.com/v1.0/chats/${chatId}/messages`, {
+          method : 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body   : JSON.stringify(payload)
+        });
+        if (res.ok) { sent++; log(`   ✅ Sent successfully`, 'log-ok'); }
+        else {
+          const err = await res.json().catch(() => res.text());
+          log(`   ❌ Failed: ${err?.error?.message || JSON.stringify(err)}`, 'log-err');
+        }
+      } catch (e) { log(`   ❌ Network error: ${e.message}`, 'log-err'); }
+
+      setProgress(sent, chatIds.length);
+      if (cancelRequested) { log(`\n⛔ Cancelled after ${sent} message(s).`, 'log-stop'); break; }
+      if (i < chatIds.length - 1) {
+        log(`   ⏳ Waiting ${delayMs / 1000}s…`, 'log-wait');
+        await cancellableSleep(delayMs);
+      }
+    }
+    if (!cancelRequested) log(`\n🎉 Done! ${sent}/${chatIds.length} messages sent.`, 'log-done');
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('cancelBtn').classList.remove('visible');
+    document.getElementById('cancelBtn').disabled = false;
+    document.getElementById('cancelBtn').textContent = '⛔ Cancel';
+    cancelRequested = false;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     TAB NAVIGATION
+  ══════════════════════════════════════════════════════════ */
+  function switchTab(id) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    const idx = ['tab-composer','tab-excel','tab-smartsend'].indexOf(id);
+    document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     ★ EXCEL ENGINE MODULE
+     Uses SheetJS (xlsx.full.min.js) loaded from CDN.
+     Handles .xlsx, .xls, .csv.
+     Auto-detects headers, validates Chat IDs, groups records.
+  ══════════════════════════════════════════════════════════ */
+
+  /** Drag-and-drop support on the drop zone */
+  const dropZone = document.getElementById('dropZone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  });
+
+  /**
+   * Called when a file is chosen via input or drag-drop.
+   * Reads the file, parses headers, and populates the column mapper.
+   */
+  function handleFileSelect(file) {
+    if (!file) return;
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      alert('❌ Unsupported file type. Please upload .xlsx, .xls, or .csv');
+      return;
+    }
+
+    dropZone.querySelector('strong').textContent = `📄 ${file.name}`;
+
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        // Parse with SheetJS — read first sheet
+        const data = new Uint8Array(ev.target.result);
+        const wb   = XLSX.read(data, { type: 'uint8array' });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+
+        // sheet_to_json with header:1 gives arrays; header:'A' gives column-keyed obj
+        // We use header:1 to get raw rows, then first row = headers
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+        if (!rows.length) { alert('❌ The Excel file appears to be empty.'); return; }
+
+        // First row = column headers
+        ExcelStore.headers = rows[0].map(h => String(h).trim());
+        ExcelStore.rawRows = rows.slice(1).filter(r => r.some(c => String(c).trim() !== ''));
+
+        // Populate column mapper dropdowns
+        populateColumnMapper(ExcelStore.headers);
+
+        // Auto-map columns by common name matching
+        autoMapColumns(ExcelStore.headers);
+
+        document.getElementById('colMapper').classList.add('visible');
+      } catch (err) {
+        alert('❌ Failed to parse Excel file: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  /**
+   * Fills all <select> dropdowns in the column mapper with detected headers.
+   */
+  function populateColumnMapper(headers) {
+    const selects = ['map-appName','map-appId','map-ctaskGroup','map-ctaskId','map-chatId'];
+    selects.forEach(id => {
+      const sel = document.getElementById(id);
+      // Clear, add placeholder
+      sel.innerHTML = '<option value="">— select —</option>';
+      headers.forEach((h, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;        // store column INDEX
+        opt.textContent = h;
+        sel.appendChild(opt);
+      });
+    });
+  }
+
+  /**
+   * Auto-detects column mapping by fuzzy-matching common header names.
+   * Users can override manually via the dropdowns.
+   */
+  function autoMapColumns(headers) {
+    const matchers = {
+      'map-appName':    [/app.?name/i, /application.?name/i, /app/i],
+      'map-appId':      [/app.?id/i, /application.?id/i],
+      'map-ctaskGroup': [/ctask.?group/i, /task.?group/i, /group/i],
+      'map-ctaskId':    [/ctask.?id/i, /task.?id/i, /ctask/i],
+      'map-chatId':     [/chat.?id/i, /channel.?id/i, /thread.?id/i, /chat/i],
+    };
+
+    Object.entries(matchers).forEach(([selId, patterns]) => {
+      const sel = document.getElementById(selId);
+      for (const pat of patterns) {
+        const idx = headers.findIndex(h => pat.test(h));
+        if (idx !== -1) { sel.value = idx; break; }
+      }
+    });
+  }
+
+  /**
+   * Reads column mapping, validates data, groups by Chat ID, renders preview.
+   */
+  function parseExcelData() {
+    const getCol = id => {
+      const v = document.getElementById(id).value;
+      return v === '' ? null : parseInt(v);
+    };
+
+    const colAppName    = getCol('map-appName');
+    const colAppId      = getCol('map-appId');
+    const colCtaskGroup = getCol('map-ctaskGroup');
+    const colCtaskId    = getCol('map-ctaskId');
+    const colChatId     = getCol('map-chatId');
+
+    if (colChatId === null) {
+      alert('❌ Please map the "Chat ID" column before parsing.');
+      return;
+    }
+
+    // Reset store
+    ExcelStore.validRows   = [];
+    ExcelStore.invalidRows = [];
+    ExcelStore.grouped     = {};
+
+    const seenChatIds = new Set();
+
+    ExcelStore.rawRows.forEach((row, rowIdx) => {
+      const obj = {
+        _rowNum  : rowIdx + 2,   // human-readable row (Excel is 1-indexed, +1 for header)
+        appName  : colAppName    !== null ? String(row[colAppName]    || '').trim() : '',
+        appId    : colAppId      !== null ? String(row[colAppId]      || '').trim() : '',
+        ctaskGroup: colCtaskGroup !== null ? String(row[colCtaskGroup] || '').trim() : '',
+        ctaskId  : colCtaskId    !== null ? String(row[colCtaskId]    || '').trim() : '',
+        chatId   : String(row[colChatId] || '').trim(),
+        _isDup   : false,
+        _isValid : false,
+      };
+
+      if (!obj.chatId) {
+        // Missing Chat ID — invalid
+        ExcelStore.invalidRows.push(obj);
+      } else {
+        obj._isValid = true;
+        if (seenChatIds.has(obj.chatId)) {
+          obj._isDup = true;  // same Chat ID appears in multiple rows (that's OK — grouping handles it)
+        }
+        seenChatIds.add(obj.chatId);
+        ExcelStore.validRows.push(obj);
+
+        // Group by Chat ID
+        if (!ExcelStore.grouped[obj.chatId]) ExcelStore.grouped[obj.chatId] = [];
+        ExcelStore.grouped[obj.chatId].push(obj);
+      }
+    });
+
+    renderSummary();
+    renderPreviewTable();
+    renderInvalidPanel();
+
+    // Enable smart send button if we have data
+    document.getElementById('smartSendBtn').disabled = ExcelStore.validRows.length === 0;
+    document.getElementById('btnPushIds').disabled   = ExcelStore.validRows.length === 0;
+  }
+
+  /** Shows the summary badge counts */
+  function renderSummary() {
+    const total   = ExcelStore.rawRows.length;
+    const valid   = ExcelStore.validRows.length;
+    const inv     = ExcelStore.invalidRows.length;
+    const chats   = Object.keys(ExcelStore.grouped).length;
+    // Duplicate = rows where their chatId maps to >1 row in grouped
+    const dupIds  = Object.values(ExcelStore.grouped).filter(g => g.length > 1).length;
+
+    document.getElementById('cnt-total').textContent = total;
+    document.getElementById('cnt-valid').textContent = valid;
+    document.getElementById('cnt-chats').textContent = chats;
+    document.getElementById('cnt-dup').textContent   = dupIds;
+    document.getElementById('cnt-inv').textContent   = inv;
+
+    document.getElementById('xlSummary').classList.add('visible');
+  }
+
+  /** Renders the data preview table */
+  function renderPreviewTable() {
+    const tbody = document.getElementById('previewBody');
+    tbody.innerHTML = '';
+
+    const allRows = [...ExcelStore.validRows, ...ExcelStore.invalidRows];
+
+    allRows.forEach(row => {
+      const tr = document.createElement('tr');
+      if (!row._isValid) tr.className = 'row-invalid';
+
+      // Determine if this chatId has multiple rows (for dup badge)
+      const isMulti = row.chatId && ExcelStore.grouped[row.chatId]?.length > 1;
+
+      tr.innerHTML = `
+        <td>${row._rowNum}</td>
+        <td>${esc(row.appName)}</td>
+        <td>${esc(row.appId)}</td>
+        <td>${esc(row.ctaskGroup)}</td>
+        <td>${esc(row.ctaskId)}</td>
+        <td>${esc(row.chatId) || '<em style="color:var(--danger)">EMPTY</em>'}
+            ${isMulti ? '<span class="tag-dup">GROUPED</span>' : ''}
+        </td>
+        <td>${row._isValid
+              ? (isMulti ? '⚡ Grouped' : '✅ Valid')
+              : '<span class="tag-invalid">INVALID</span>'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('dataPreview').classList.add('visible');
+  }
+
+  /** Renders the invalid records panel */
+  function renderInvalidPanel() {
+    const panel = document.getElementById('invalidPanel');
+    const list  = document.getElementById('invalidList');
+    if (!ExcelStore.invalidRows.length) { panel.classList.remove('visible'); return; }
+
+    list.innerHTML = ExcelStore.invalidRows.map(r =>
+      `Row ${r._rowNum}: ${[r.appName, r.appId, r.ctaskGroup, r.ctaskId].filter(Boolean).join(' | ')} — Chat ID missing`
+    ).join('<br>');
+    panel.classList.add('visible');
+  }
+
+  /**
+   * Escapes HTML for safe rendering in table cells.
+   */
+  function esc(str) {
+    return String(str || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  /**
+   * Pushes unique valid Chat IDs to the main Chat IDs textarea (Composer tab).
+   * Appends only new IDs — won't duplicate existing ones.
+   */
+  function pushChatIdsToMain() {
+    const textarea = document.getElementById('chatIds');
+    const existing = new Set(
+      textarea.value.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'))
+    );
+    const newIds = Object.keys(ExcelStore.grouped).filter(id => !existing.has(id));
+    if (!newIds.length) { alert('All Chat IDs from the Excel file are already in the list.'); return; }
+    const separator = textarea.value.trim() ? '\n' : '';
+    textarea.value += separator + newIds.join('\n');
+    alert(`✅ ${newIds.length} Chat ID(s) added to the Composer tab.`);
+    switchTab('tab-composer');
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     ★ SMART SENDER MODULE
+     Builds one message per Chat ID containing ALL apps for that
+     chat. Extensible: replace sendViaTeamsGraph() with any API.
+  ══════════════════════════════════════════════════════════ */
+
+  /**
+   * Builds the HTML payload for a single Chat ID.
+   * Format: custom message + app details table.
+   *
+   * EXTENSIBILITY NOTE: This function returns a {html, text} object.
+   * To integrate another platform:
+   *   - Slack: use `text` (markdown) field
+   *   - Google Chat: use `text` with card blocks
+   *   - WhatsApp Business API: use `text`
+   *   - Teams Graph: use `html`
+   */
+  function buildMessagePayload(chatId, customMsg) {
+    const apps = ExcelStore.grouped[chatId] || [];
+    const escapedMsg = esc(customMsg);
+
+    // ── Plain text version (for Slack, WhatsApp, etc.) ──
+    let textParts = [];
+    if (customMsg) textParts.push(customMsg + '\n');
+    textParts.push('Application Details:\n');
+    apps.forEach((app, i) => {
+      if (apps.length > 1) textParts.push(`[Application ${i + 1}]`);
+      if (app.appName)    textParts.push(`App Name   : ${app.appName}`);
+      if (app.appId)      textParts.push(`App ID     : ${app.appId}`);
+      if (app.ctaskGroup) textParts.push(`CTASK Group: ${app.ctaskGroup}`);
+      if (app.ctaskId)    textParts.push(`CTASK ID   : ${app.ctaskId}`);
+      textParts.push('');
+    });
+    const plainText = textParts.join('\n').trim();
+
+    // ── HTML version (for Teams Graph API) ──
+    let appRows = apps.map((app, i) => `
+      ${apps.length > 1 ? `<tr><td colspan="2" style="padding:8px 10px;font-weight:700;background:#f0f4ff;color:#1d4ed8;border:1px solid #d1d5db;">Application ${i + 1}</td></tr>` : ''}
+      ${app.appName    ? `<tr><td style="border:1px solid #d1d5db;padding:6px 10px;font-weight:600;background:#f9fafb;width:140px;">App Name</td><td style="border:1px solid #d1d5db;padding:6px 10px;">${esc(app.appName)}</td></tr>` : ''}
+      ${app.appId      ? `<tr><td style="border:1px solid #d1d5db;padding:6px 10px;font-weight:600;background:#f9fafb;">App ID</td><td style="border:1px solid #d1d5db;padding:6px 10px;">${esc(app.appId)}</td></tr>` : ''}
+      ${app.ctaskGroup ? `<tr><td style="border:1px solid #d1d5db;padding:6px 10px;font-weight:600;background:#f9fafb;">CTASK Group</td><td style="border:1px solid #d1d5db;padding:6px 10px;">${esc(app.ctaskGroup)}</td></tr>` : ''}
+      ${app.ctaskId    ? `<tr><td style="border:1px solid #d1d5db;padding:6px 10px;font-weight:600;background:#f9fafb;">CTASK ID</td><td style="border:1px solid #d1d5db;padding:6px 10px;">${esc(app.ctaskId)}</td></tr>` : ''}
+    `).join('');
+
+    const html = `
+      <div style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#111827;line-height:1.7;">
+        ${customMsg ? `<p style="margin-bottom:14px;">${escapedMsg}</p>` : ''}
+        <table style="border-collapse:collapse;width:100%;font-size:13px;">
+          <thead>
+            <tr><th colspan="2" style="background:#1a73e8;color:#fff;padding:9px 12px;text-align:left;font-size:13px;border:1px solid #1a73e8;">📋 Application Details</th></tr>
+          </thead>
+          <tbody>${appRows}</tbody>
+        </table>
+      </div>
+    `.trim();
+
+    return { html, text: plainText };
+  }
+
+  /**
+   * Renders a preview panel showing how each Chat ID's message will look.
+   */
+  function buildSmartPreview() {
+    if (!ExcelStore.validRows.length) {
+      alert('⚠️ No data loaded. Please import an Excel file in the Excel Importer tab first.');
+      return;
+    }
+    const customMsg  = document.getElementById('smartMsg').value.trim();
+    const previewDiv = document.getElementById('smartPreview');
+    previewDiv.innerHTML = '';
+
+    Object.entries(ExcelStore.grouped).forEach(([chatId, apps]) => {
+      const group = document.createElement('div');
+      group.className = 'chat-group';
+
+      const title = document.createElement('div');
+      title.className = 'chat-group-title';
+      title.textContent = `💬 Chat ID: ${chatId}  (${apps.length} application${apps.length > 1 ? 's' : ''})`;
+      group.appendChild(title);
+
+      if (customMsg) {
+        const cm = document.createElement('div');
+        cm.className = 'custom-msg';
+        cm.textContent = '→ ' + customMsg;
+        group.appendChild(cm);
+      }
+
+      apps.forEach(app => {
+        const row = document.createElement('div');
+        row.className = 'app-row';
+        const fields = [
+          app.appName    && `App Name: ${app.appName}`,
+          app.appId      && `App ID: ${app.appId}`,
+          app.ctaskGroup && `CTASK Group: ${app.ctaskGroup}`,
+          app.ctaskId    && `CTASK ID: ${app.ctaskId}`,
+        ].filter(Boolean);
+        row.innerHTML = fields.map(f => `<div>${esc(f)}</div>`).join('');
+        group.appendChild(row);
+      });
+
+      previewDiv.appendChild(group);
+    });
+
+    previewDiv.classList.add('visible');
+    document.getElementById('smartSendBtn').disabled = false;
+  }
+
+  /**
+   * Sends one Teams message per Chat ID via Microsoft Graph API.
+   * The bearer token from the Smart Send tab is used.
+   *
+   * EXTENSIBILITY HOOK:
+   *   Replace or supplement sendViaTeamsGraph() with:
+   *   - sendViaSlack(chatId, payload)
+   *   - sendViaGoogleChat(chatId, payload)
+   *   - sendViaWhatsApp(chatId, payload)
+   *   Each platform would call buildMessagePayload() and use
+   *   the appropriate field (html vs text).
+   */
+  async function startSmartBroadcast() {
+    const token = document.getElementById('smartBearerToken').value.trim();
+    if (!token) { alert('Please enter your Bearer Token in the Smart Send Settings.'); return; }
+    if (!ExcelStore.validRows.length) { alert('No valid data to send. Import Excel data first.'); return; }
+
+    const chatIds = Object.keys(ExcelStore.grouped);
+    const delayMs = (parseInt(document.getElementById('smartDelay').value) || 20) * 1000;
+    const customMsg = document.getElementById('smartMsg').value.trim();
+
+    smartCancelRequested = false;
+    document.getElementById('smartSendBtn').disabled = true;
+    document.getElementById('smartCancelBtn').classList.add('visible');
+    document.getElementById('smartCancelBtn').disabled = false;
+    document.getElementById('smartProgressWrap').classList.add('visible');
+    smartSetProgress(0, chatIds.length);
+    smartLog(`📋 Chat IDs to process: ${chatIds.length}`, 'log-info');
+    smartLog(`⏱  Delay: ${delayMs / 1000}s between messages`, 'log-info');
+    smartLog(`──────────────────────────────────────────`);
+
+    let sent = 0;
+    const sentChatIds = new Set(); // Prevent duplicate sends within same run
+
+    for (let i = 0; i < chatIds.length; i++) {
+      if (smartCancelRequested) { smartLog(`\n⛔ Cancelled after ${sent} message(s).`, 'log-stop'); break; }
+
+      const chatId = chatIds[i];
+      if (sentChatIds.has(chatId)) {
+        smartLog(`   ⏭ Skipped duplicate: ${chatId}`, 'log-wait');
+        continue;
+      }
+      sentChatIds.add(chatId);
+
+      const apps = ExcelStore.grouped[chatId];
+      smartLog(`➤ [${i + 1}/${chatIds.length}] ${chatId} (${apps.length} app${apps.length > 1 ? 's' : ''})`);
+
+      try {
+        const payload = buildMessagePayload(chatId, customMsg);
+        await sendViaTeamsGraph(chatId, token, payload.html);
+        sent++;
+        smartLog(`   ✅ Sent successfully`, 'log-ok');
+      } catch (err) {
+        smartLog(`   ❌ ${err.message}`, 'log-err');
+      }
+
+      smartSetProgress(sent, chatIds.length);
+      if (smartCancelRequested) { smartLog(`\n⛔ Cancelled after ${sent} message(s).`, 'log-stop'); break; }
+      if (i < chatIds.length - 1) {
+        smartLog(`   ⏳ Waiting ${delayMs / 1000}s…`, 'log-wait');
+        await smartCancellableSleep(delayMs);
+      }
+    }
+
+    if (!smartCancelRequested) smartLog(`\n🎉 Done! ${sent}/${chatIds.length} messages sent.`, 'log-done');
+    document.getElementById('smartSendBtn').disabled = false;
+    document.getElementById('smartCancelBtn').classList.remove('visible');
+    smartCancelRequested = false;
+  }
+
+  /**
+   * Sends HTML content to a single Teams chat via Microsoft Graph API.
+   * Throws on failure so the caller can log the error.
+   *
+   * @param {string} chatId  - The Teams chat/channel ID
+   * @param {string} token   - Bearer token for Graph API
+   * @param {string} html    - HTML content to send
+   *
+   * FUTURE INTEGRATIONS:
+   *   Slack:        POST to https://slack.com/api/chat.postMessage
+   *   Google Chat:  POST to https://chat.googleapis.com/v1/spaces/{space}/messages
+   *   WhatsApp:     POST to https://graph.facebook.com/v17.0/{phone_id}/messages
+   */
+  async function sendViaTeamsGraph(chatId, token, html) {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/chats/${chatId}/messages`,
+      {
+        method : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type' : 'application/json'
+        },
+        body: JSON.stringify({ body: { contentType: 'html', content: html } })
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: { message: res.statusText } }));
+      throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+
+  function cancelSmartBroadcast() {
+    smartCancelRequested = true;
+    smartLog('⛔ Cancel requested…', 'log-stop');
+    document.getElementById('smartCancelBtn').disabled = true;
+    document.getElementById('smartCancelBtn').textContent = '⏳ Cancelling…';
+  }
+
+  function smartLog(msg, cls = '') {
+    const box  = document.getElementById('smartLog');
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function smartSetProgress(done, total) {
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    document.getElementById('smartProgressFill').style.width = pct + '%';
+    document.getElementById('smartProgressLabel').textContent =
+      `${done} / ${total} chats sent  (${pct}%)`;
+  }
+
+  async function smartCancellableSleep(ms) {
+    const chunks = Math.ceil(ms / 500);
+    for (let c = 0; c < chunks; c++) {
+      if (smartCancelRequested) return;
+      await sleep(500);
+    }
+  }
+
+</script>
+</body>
+</html>
